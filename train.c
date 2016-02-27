@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "train.h"
  
 /* A global to assign IDs to our trains */ 
@@ -26,6 +27,7 @@ FILE *inputFile;
  */
 #define MAXLINE		80
 
+
 void	initTrain ( char *filename )
 {
 	doRandom = 0;
@@ -39,7 +41,15 @@ void	initTrain ( char *filename )
 	else
 	{
 		/* remove this line and add your code here */
-		printf ("File input not implemented.\n");
+		//printf ("File input not implemented.\n");
+		inputFile = fopen(filename, "r");
+
+		//this should never occur as per assignment specs
+		if (inputFile == NULL){
+			perror("File not opened");
+		}
+
+
 	}
 }
  
@@ -67,9 +77,23 @@ TrainInfo *createTrain ( void )
 
 	if (!doRandom)
 	{
-		/* Your code here to read a line of input
-		 * from the input file 
-		 */
+		char line[81];
+		if (fgets(line, MAXLINE, inputFile) != NULL){
+			//printf("%s\n", line);
+			if (!strncmp(line,"E",1) || !strncmp(line,"e",1)){
+				info->direction = 2;
+			} else {
+				info->direction = 1;
+			}
+			memmove(line, line+1, strlen(line));
+
+			int i = atoi(line);
+			//printf("%d\n", i);
+			info-> length = i;
+
+		} else {
+			fclose (inputFile);
+		}
 	}
 	return info;
 }

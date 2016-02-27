@@ -1,8 +1,8 @@
 /*
  * assign2.c
  *
- * Name:
- * Student Number:
+ * Name: Rafael Solorzano
+ * Student Number: V00838235
  */
 
 #include <unistd.h>
@@ -41,8 +41,8 @@ void * Train ( void *arguments )
 	CrossBridge  (train);
 	LeaveBridge  (train); 
 
-	/* I decided that the paramter structure would be malloc'd 
-	 * in the main thread, but the individual threads are responsible
+	/* I decided that the parameter structure would be malloc'd
+	 * in the main thread, but the individual threads are responsible66f
 	 * for freeing the memory.
 	 *
 	 * This way I didn't have to keep an array of parameter pointers
