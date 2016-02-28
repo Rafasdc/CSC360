@@ -10,7 +10,10 @@
 #include <stdlib.h> 
 #include <pthread.h>
 #include <string.h>
+#include <vector>
+extern "C"{
 #include "train.h"
+}
 
 /*
  * If you uncomment the following line, some debugging
@@ -28,7 +31,9 @@ int arrivalPos = 0;
 int turn = 0;
 int east_waiting = 0;
 int west_waiting = 0;
-TrainInfo *list[256];
+int east_crossed = 0;
+//TrainInfo *list[256];
+std::vector<TrainInfo *>list;
 
 
 
@@ -47,9 +52,12 @@ void * Train ( void *arguments )
 
 
 
+	train->arrival = arrivalPos;
+	list.push_back(train);
 	ArriveBridge (train);
 	CrossBridge  (train);
 	LeaveBridge  (train); 
+	//printf("train %d just finished\n", train->trainId);
 
 
 	/* I decided that the parameter structure would be malloc'd
@@ -67,18 +75,15 @@ void * Train ( void *arguments )
  * You will need to add code to this function to ensure that
  * the trains cross the bridge in the correct order.
  */
-pthread_mutex_t bridge;
-pthread_cond_t turns;
+pthread_mutex_t bridge = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t turns = PTHREAD_COND_INITIALIZER;
 
 
 void ArriveBridge ( TrainInfo *train )
 {
-	printf ("Train %2d arrives going %s\n", train->trainId, 
+	printf ("Train %2d arrives going %s\n", train->trainId,
 			(train->direction == DIRECTION_WEST ? "West" : "East"));
 
-	train->arrival = arrivalPos;
-	list[arrivalPos] = train;
-	arrivalPos++;
 
 	if (train->direction == DIRECTION_WEST){
 		west_waiting++;
@@ -86,12 +91,12 @@ void ArriveBridge ( TrainInfo *train )
 		east_waiting++;
 	}
 
-
 	pthread_mutex_lock(&bridge);
 
 	while(train != list[turn]){
 		pthread_cond_wait(&turns, &bridge);
 	}
+
 }
 
 /*
@@ -100,8 +105,8 @@ void ArriveBridge ( TrainInfo *train )
  */
 void CrossBridge ( TrainInfo *train )
 {
-	printf ("Train %2d is ON the bridge (%s)\n", train->trainId,
-			(train->direction == DIRECTION_WEST ? "West" : "East"));
+//	printf ("Train %2d is ON the bridge (%s)\n", train->trainId,
+//			(train->direction == DIRECTION_WEST ? "West" : "East"));
 	fflush(stdout);
 	
 	/* 
@@ -110,9 +115,15 @@ void CrossBridge ( TrainInfo *train )
 	 */
 	usleep (train->length*SLEEP_MULTIPLE);
 
-	printf ("Train %2d is OFF the bridge(%s)\n", train->trainId, 
+
+	printf ("Train %2d is OFF the bridge(%s)\n", train->trainId,
 			(train->direction == DIRECTION_WEST ? "West" : "East"));
 	fflush(stdout);
+	/*
+	printf ("Train %2d is OFF the bridge(%s)\n", train->trainId,
+			(train->direction == DIRECTION_WEST ? "West" : "East"));
+	fflush(stdout);
+	*/
 }
 
 /*
@@ -121,7 +132,52 @@ void CrossBridge ( TrainInfo *train )
  */
 void LeaveBridge ( TrainInfo *train )
 {
-	/*
+	if (train->direction == DIRECTION_EAST){
+		east_waiting--;
+		east_crossed++;
+	} else if (train->direction == DIRECTION_WEST || east_crossed == 2) {
+		east_crossed = 0;
+	}
+	printf("There are %d east trains waiting\n", east_waiting);
+	//printf("in leave bridge \n");
+	int found = 0;
+	TrainInfo* firstFound;
+	TrainInfo* secondFound;
+	if (train->direction == DIRECTION_WEST && east_waiting > 0){
+		for(int i = turn+1; i < list.size(); i++){
+			if (list[i]->direction == DIRECTION_EAST){
+				if (found == 0){
+					found++;
+					firstFound = list[i];
+					list.erase(list.begin()+i);
+					list.insert(list.begin()+turn+1, firstFound);
+				} else if (found == 1){
+					found++;
+					secondFound = list[i];
+					list.erase(list.begin()+i);
+					list.insert(list.begin()+turn+2,secondFound);
+					break;
+				}
+			}
+		}
+		if (found == 1){
+
+		} else if (found == 2){
+
+		}
+	} else if (east_waiting > 0 && east_crossed < 2){
+		TrainInfo* temp;
+		for(int i = turn+1; i < list.size(); i++){
+			if(list[i]->direction == DIRECTION_EAST){
+				temp = list[i];
+				list.erase(list.begin()+i);
+				list.insert(list.begin()+turn+1, temp);
+				break;
+			}
+		}
+	}
+/*
+	//printf("in leave bridge \n");
 	int found = 0;
 	TrainInfo* first_found;
 	int first_found_pos;
@@ -129,32 +185,33 @@ void LeaveBridge ( TrainInfo *train )
 	int second_found_pos;
 	if (train->direction == DIRECTION_WEST){
 		west_waiting--;
-		//find two or 1 east and shift array positions
-		if (list[turn+1] != NULL){
+		if (list[turn+1] != NULL && east_waiting > 0){
 			//TrainInfo* next = list[turn+1];
 
 			int i = turn+1;
 			while( i < arrivalPos && found < 2){
-				printf("in big while\n");
-				if (list[i]->direction == DIRECTION_EAST && found == 0){
+				//printf("in big while\n");
+				//printf("i is %d\n", i);
+				//printf("found is %d\n",found);
+				if (list[i] != NULL && found == 0 && list[i]->direction == DIRECTION_EAST){
 					found++;
 					first_found = list[i];
 					first_found_pos = i;
 					int a = i;
-					printf("found one\n");
+					//printf("found one\n");
 					while(a < arrivalPos){
-						printf("Train %2d going east is waiting at position %d\n", list[a]->trainId, a);
+						//printf("Train %2d going east is waiting at position %d\n", list[a]->trainId, a);
 						list[a] = list[a+1];
 						a++;
-						printf("whiles executed %d\n", a);
-						printf("shift complete\n");
+						//printf("whiles executed %d\n", a);
+						//printf("shift complete\n");
 					}
-					printf("Train %2d going east is waiting at position %d\n", list[i]->trainId, i);
-					printf("shift complete\n");
-					//i--;
+					//printf("Train %2d going east is waiting at position %d\n", list[i]->trainId, i);
+					//printf("shift complete\n");
+					i--;
 
-				} else if (list[i]->direction == DIRECTION_EAST && found == 1){
-					printf("in second if\n");
+				} else if (list[i] != NULL && found == 1 && list[i]->direction == DIRECTION_EAST ){
+					//printf("in second if\n");
 					found++;
 					second_found = list[i];
 					second_found_pos = i;
@@ -163,50 +220,63 @@ void LeaveBridge ( TrainInfo *train )
 						list[b] = list[b+1];
 						b++;
 					}
-					//i--;
+					i--;
 				}
 				i++;
 			}
+			if (found == 1){
+					//printf("in found 1\n");
+					TrainInfo *list1[256];
+					int a = 0;
+					while(a < turn){
+						list1[a] = list[a];
+						a++;
+					}
+					list1[turn+1] = first_found;
+					a = turn+2;
+					while(a < arrivalPos){
+						list1[a] = list[a-1];
+						a++;
+					}
+					memcpy(list,list1,256);
+				} else if (found == 2){
+					TrainInfo *list2[256];
+					int a = 0;
+					while(a < turn){
+						list2[a] = list[a];
+						a++;
+					}
+					list2[turn+1] = first_found;
+					list2[turn+2] = second_found;
+					a = turn+3;
+					while(a < arrivalPos){
+						list2[a] = list[a-1];
+						a++;
+					}
+					memcpy(list,list2,256);
+				}
+
 		}
 	} else {
 		east_waiting--;
 	}
-	printf("completed big while");
-	if (found == 1){
-		printf("in found 1\n");
-		TrainInfo *list1[256];
-		int a = 0;
-		while(a < turn){
-			list1[a] = list[a];
-			a++;
-		}
-		list1[turn+1] = first_found;
-		a = turn+2;
-		while(a < arrivalPos){
-			list1[a] = list[a-1];
-			a++;
-		}
-		memcpy(list,list1,256);
-	} else if (found == 2){
-		TrainInfo *list2[256];
-		int a = 0;
-		while(a < turn){
-			list2[a] = list[a];
-			a++;
-		}
-		list2[turn+1] = first_found;
-		list2[turn+2] = second_found;
-		a = turn+3;
-		while(a < arrivalPos){
-			list2[a] = list[a-1];
-			a++;
-		}
-		memcpy(list,list2,256);
-	}
-	*/
+
+	//printf("completed big while\n");
+	 *
+	 */
+
+
+
+//	printf("train %d just before unlocking mutex\n", train->trainId);
 	turn++;
+
+	//printf("train %d broadcasted\n", train->trainId);
+
 	pthread_mutex_unlock(&bridge);
 	pthread_cond_broadcast(&turns);
+	//printf("train %d unlocked mutex\n", train->trainId);
+
+
 }
 
 int main ( int argc, char *argv[] )
@@ -253,9 +323,9 @@ int main ( int argc, char *argv[] )
 	{
 		TrainInfo *info = createTrain();
 		
-		printf ("Train %2d headed %s length is %d\n", info->trainId,
-			(info->direction == DIRECTION_WEST ? "West" : "East"),
-			info->length );
+		//printf ("Train %2d headed %s length is %d\n", info->trainId,
+		//	(info->direction == DIRECTION_WEST ? "West" : "East"),
+		//	info->length );
 
 		if ( pthread_create (&tids[i],0, Train, (void *)info) != 0 )
 		{
@@ -270,6 +340,7 @@ int main ( int argc, char *argv[] )
 	for (i=0;i<trainCount;i++)
 	{
 		pthread_join (tids[i], NULL);
+		//printf("waiting on %d\n", i);
 	}
 	
 	free(tids);
