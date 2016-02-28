@@ -23,6 +23,8 @@
 void ArriveBridge (TrainInfo *train);
 void CrossBridge (TrainInfo *train);
 void LeaveBridge (TrainInfo *train);
+int arrivePos = 1;
+int turn = 1;
 
 /*
  * This function is started for each thread created by the
@@ -36,10 +38,13 @@ void * Train ( void *arguments )
 
 	/* Sleep to simulate different arrival times */
 	usleep (train->length*SLEEP_MULTIPLE);
+	train->arrival = arrivePos;
+	arrivePos++;
 
 	ArriveBridge (train);
 	CrossBridge  (train);
 	LeaveBridge  (train); 
+
 
 	/* I decided that the parameter structure would be malloc'd
 	 * in the main thread, but the individual threads are responsible66f
@@ -56,11 +61,17 @@ void * Train ( void *arguments )
  * You will need to add code to this function to ensure that
  * the trains cross the bridge in the correct order.
  */
+pthread_mutex_t bridge;
+pthread_cond_t turns;
+
 void ArriveBridge ( TrainInfo *train )
 {
 	printf ("Train %2d arrives going %s\n", train->trainId, 
 			(train->direction == DIRECTION_WEST ? "West" : "East"));
-	/* Your code here... */
+	pthread_mutex_lock(&bridge);
+	while(turn != train->arrival){
+		pthread_cond_wait(&turns, &bridge);
+	}
 }
 
 /*
@@ -90,11 +101,14 @@ void CrossBridge ( TrainInfo *train )
  */
 void LeaveBridge ( TrainInfo *train )
 {
-
+	turn++;
+	pthread_mutex_unlock(&bridge);
 }
 
 int main ( int argc, char *argv[] )
 {
+
+
 	int		trainCount = 0;
 	char 		*filename = NULL;
 	pthread_t	*tids;
