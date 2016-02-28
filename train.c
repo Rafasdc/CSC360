@@ -21,6 +21,7 @@ int doRandom = 0;
 
 /* The file to input train data from */
 FILE *inputFile;
+char* line;
 
 /* You can assume that no more than 80 characters
  * will be on any line in the input file
@@ -77,24 +78,29 @@ TrainInfo *createTrain ( void )
 
 	if (!doRandom)
 	{
-		char line[81];
+		line = (char*)malloc(MAXLINE);
+		//printf("before fgets\n");
 		if (fgets(line, MAXLINE, inputFile) != NULL){
 			//printf("%s\n", line);
-			if (!strncmp(line,"E",1) || !strncmp(line,"e",1)){
+			if (line[0] == 'E' || line[0] == 'e'){
 				info->direction = 2;
 			} else {
 				info->direction = 1;
 			}
-			memmove(line, line+1, strlen(line));
+			//memmove(line, line+1, strlen(line));
 
-			int i = atoi(line);
+			int i = atoi(&line[1]);
 			//printf("%d\n", i);
 			info-> length = i;
-
+			//printf("before free line\n");
+			free(line);
 		} else {
+			//printf("before fclose\n");
 			fclose (inputFile);
 		}
+
 	}
+
 	return info;
 }
 
