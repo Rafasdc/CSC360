@@ -134,7 +134,7 @@ int getFreeBlocks(FILE *fp){
 	int val;
 	int retVal = 0;
 	int v = 120;
-	if (fseek(fp,125,SEEK_SET) != 0){
+	if (fseek(fp,15,SEEK_SET) != 0){
 		printf("ERROR");
 	}
 	while (1){
