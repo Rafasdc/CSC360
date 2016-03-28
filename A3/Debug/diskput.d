@@ -1,0 +1,1 @@
+diskput.o: ../diskput.cpp
