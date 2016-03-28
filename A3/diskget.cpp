@@ -9,7 +9,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string>
+#include <cstring>
 
 int currentFile;
 
@@ -100,6 +100,25 @@ int getStartBlock(FILE *fp){
 	return retVal;
 }
 
+int getBlockSize(FILE * fp){
+	int high;
+	int low;
+	unsigned char high_temp;
+	unsigned char low_temp;
+	int retVal;
+	fseek(fp,DIRECTORY_BLOCK_COUNT_OFFSET+currentFile,SEEK_SET);
+	fread(&high_temp,1,1,fp);
+	fread(&low_temp,1,1,fp);
+	high = ((high_temp<<8)) + low_temp;
+	//printf("%d\n",high);
+	fread(&high_temp,1,1,fp);
+	fread(&low_temp,1,1,fp);
+	low = ((high_temp<<8)) + low_temp;
+	//printf("%d\n",low);
+	retVal = ((high<<8)) + low;
+	return retVal;
+}
+
 void getModified (FILE *fp){
 	fseek(fp,DIRECTORY_MODIFY_OFFSET+currentFile,SEEK_SET);
 	unsigned char high;
@@ -121,12 +140,21 @@ void getModified (FILE *fp){
 	printf("%d/%02d/%02d %02d:%02d:%02d\n",YYYY, MM, DD, HH, mm, SS);
 }
 
-void copyFile(FILE *fp, int startblock){
+void copyFile(FILE *fp, int startblock, int size, char* name){
 	fseek(fp,startblock*512,SEEK_SET);
-	char test[999];
+	FILE * out;
+	out = fopen(name,"w");
+	char test[4];
+	int i = 0;
 	while (1){
 		fread(&test,1,1,fp);
-		printf("%s",test);
+		fwrite(test,1,1,out);
+		//printf("%s",test);
+		i++;
+		if (i == size){
+			break;
+			fclose(out);
+		}
 	}
 }
 
@@ -136,6 +164,7 @@ int main(int argc, char** argv)
 	int filetype;
 	int size;
 	int startblock;
+	int blocksize;
 	char *name = new char[DIRECTORY_MAX_NAME_LENGTH];
 	FILE *fp;
 
@@ -162,11 +191,13 @@ int main(int argc, char** argv)
 			}
 			size = getSize(fp);
 			startblock = getStartBlock(fp);
+			blocksize = getBlockSize(fp);
+			//printf("%d\n",blocksize);
 			getName(fp,name);
 			currentFile+=64;
 			if (strcmp(argv[2],name) == 0){
-				printf("found!\n");
-				copyFile(fp,startblock);
+				//printf("found!\n");
+				copyFile(fp,startblock,size,name);
 				break;
 			}
 		}
