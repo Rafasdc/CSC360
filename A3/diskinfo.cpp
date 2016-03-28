@@ -133,11 +133,39 @@ int getFreeBlocks(FILE *fp){
 	unsigned char low_temp;
 	int val;
 	int retVal = 0;
-	int v = 120;
-	if (fseek(fp,15,SEEK_SET) != 0){
-		printf("ERROR");
-	}
+	int v = 512;
 	while (1){
+		fseek(fp,v,SEEK_SET);
+		v+= 4;
+		fread(&high_temp,1,1,fp);
+		fread(&low_temp,1,1,fp);
+		high = ((high_temp<<8)) + low_temp;
+		fread(&high_temp,1,1,fp);
+		fread(&low_temp,1,1,fp);
+		low = ((high_temp<<8)) + low_temp;
+		val = ((high<<8)) + low;
+		if (val == FAT_FREE){
+			retVal++;
+		}
+		if (v == 121*512){
+			break;
+		}
+	}
+
+	return retVal;
+}
+
+int getReservedBlocks(FILE *fp){
+	int high;
+	int low;
+	unsigned char high_temp;
+	unsigned char low_temp;
+	int val;
+	int retVal = 0;
+	int v = 512;
+	while (1){
+		fseek(fp,v,SEEK_SET);
+		v+= 4;
 		fread(&high_temp,1,1,fp);
 		fread(&low_temp,1,1,fp);
 		high = ((high_temp<<8)) + low_temp;
@@ -148,12 +176,19 @@ int getFreeBlocks(FILE *fp){
 		if (val == FAT_RESERVED){
 			retVal++;
 		}
-		if (feof(fp)){
+		if (v == 121*512){
 			break;
 		}
 	}
 
 	return retVal;
+}
+
+int getAllocatedBlocks(FILE *fp){
+	int  bc = getBlockCount(fp);
+	int  rb = getReservedBlocks(fp);
+	int  fb = getFreeBlocks(fp);
+	return bc - rb - fb;
 }
 
 int main(int argc, char** argv)
@@ -167,6 +202,8 @@ int main(int argc, char** argv)
 	int rootdirstart;
 	int rootdirblocks;
 	int freeblocks;
+	int reservedblocks;
+	int allocatedblocks;
 	if ((fp=fopen(argv[1],"r")))
 	{
 		printf("Super block information:\n");
@@ -187,6 +224,10 @@ int main(int argc, char** argv)
 		printf("\nFAT information:\n");
 		freeblocks = getFreeBlocks(fp);
 		printf("Free Blocks: %d\n", freeblocks);
+		reservedblocks = getReservedBlocks(fp);
+		printf("Reserved Blocks: %d\n", reservedblocks);
+		allocatedblocks = getAllocatedBlocks(fp);
+		printf("Allocated Blocks: %d\n", allocatedblocks);
 
 	} else
 		printf("Fail to open the image file.\n");
