@@ -217,13 +217,14 @@ int main(int argc, char** argv)
 		currentFile = getRootDirStart(fp)*512;
 		printf("File not found\n");
 		int freeblock = findFreeBlock(fp);
-		fseek(fp,freeblock,SEEK_SET);
+		fseek(fp,freeblock-4,SEEK_SET);
 		char hex[9];
 		sprintf(hex,"%08x",freeblock);
 		printf("%s\n", hex);
 		const char a[] = {'R','R','R','R'};
 		//printf("%d\n", freeblock);
-		int b = 0xFFFFFFFF;
+		int c = 0xDEADBEEF;
+		int b = htonl(c);
 		fwrite(&b,1,4,fp);
 
 		/*

@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstring>
+#include <netinet/in.h>
 
 int currentFile;
 
