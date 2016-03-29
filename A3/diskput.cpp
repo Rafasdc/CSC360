@@ -24,7 +24,6 @@ int findFreeBlock(FILE *fp){
 	while (1){
 		fseek(fp,v,SEEK_SET);
 		v+= 4;
-
 		fread(&high_temp,1,1,fp);
 		fread(&low_temp,1,1,fp);
 		high = ((high_temp<<8)) + low_temp;
@@ -34,8 +33,34 @@ int findFreeBlock(FILE *fp){
 		val = ((high<<8)) + low;
 
 		if (val == FAT_FREE){
-			printf("%d\n",i);
+			//printf("%d\n",i);
 			return v;
+		}
+		i++;
+	}
+}
+
+int findFreeBlockPos(FILE *fp){
+	int high;
+	int low;
+	unsigned char high_temp;
+	unsigned char low_temp;
+	int val;
+	int v = 512;
+	int i = 0;
+	while (1){
+		fseek(fp,v,SEEK_SET);
+		v+= 4;
+		fread(&high_temp,1,1,fp);
+		fread(&low_temp,1,1,fp);
+		high = ((high_temp<<8)) + low_temp;
+		fread(&high_temp,1,1,fp);
+		fread(&low_temp,1,1,fp);
+		low = ((high_temp<<8)) + low_temp;
+		val = ((high<<8)) + low;
+
+		if (val == FAT_FREE){
+			return i;
 		}
 		i++;
 	}
@@ -84,24 +109,6 @@ int getFileType(FILE *fp){
 	//printf("%d\n",type);
 	return type;
 }
-int getSize(FILE *fp){
-	int high;
-	int low;
-	unsigned char high_temp;
-	unsigned char low_temp;
-	int retVal;
-	fseek(fp,DIRECTORY_FILE_SIZE_OFFSET-1,SEEK_CUR);
-	fread(&high_temp,1,1,fp);
-	fread(&low_temp,1,1,fp);
-	high = ((high_temp<<8)) + low_temp;
-	//printf("%d\n",high);
-	fread(&high_temp,1,1,fp);
-	fread(&low_temp,1,1,fp);
-	low = ((high_temp<<8)) + low_temp;
-	//printf("%d\n",low);
-	retVal = ((high<<8)) + low;
-	return retVal;
-}
 
 void getName (FILE *fp, char *name){
 	fseek(fp,DIRECTORY_FILENAME_OFFSET+currentFile,SEEK_SET);
@@ -109,64 +116,6 @@ void getName (FILE *fp, char *name){
 	//printf("%*s ",DIRECTORY_MAX_NAME_LENGTH,name);
 }
 
-int getStartBlock(FILE *fp){
-	int high;
-	int low;
-	unsigned char high_temp;
-	unsigned char low_temp;
-	int retVal;
-	fseek(fp,DIRECTORY_START_BLOCK_OFFSET+currentFile,SEEK_SET);
-	fread(&high_temp,1,1,fp);
-	fread(&low_temp,1,1,fp);
-	high = ((high_temp<<8)) + low_temp;
-	//printf("%d\n",high);
-	fread(&high_temp,1,1,fp);
-	fread(&low_temp,1,1,fp);
-	low = ((high_temp<<8)) + low_temp;
-	//printf("%d\n",low);
-	retVal = ((high<<8)) + low;
-	return retVal;
-}
-
-int getBlockSize(FILE * fp){
-	int high;
-	int low;
-	unsigned char high_temp;
-	unsigned char low_temp;
-	int retVal;
-	fseek(fp,DIRECTORY_BLOCK_COUNT_OFFSET+currentFile,SEEK_SET);
-	fread(&high_temp,1,1,fp);
-	fread(&low_temp,1,1,fp);
-	high = ((high_temp<<8)) + low_temp;
-	//printf("%d\n",high);
-	fread(&high_temp,1,1,fp);
-	fread(&low_temp,1,1,fp);
-	low = ((high_temp<<8)) + low_temp;
-	//printf("%d\n",low);
-	retVal = ((high<<8)) + low;
-	return retVal;
-}
-
-void getModified (FILE *fp){
-	fseek(fp,DIRECTORY_MODIFY_OFFSET+currentFile,SEEK_SET);
-	unsigned char high;
-	unsigned char low;
-	int YYYY;
-	int MM;
-	int DD;
-	int HH;
-	int mm;
-	int SS;
-	fread(&high,1,1,fp);
-	fread(&low,1,1,fp);
-	YYYY = ((high)<<8) + low;
-	fread(&MM,1,1,fp);
-	fread(&DD,1,1,fp);
-	fread(&HH,1,1,fp);
-	fread(&mm,1,1,fp);
-	fread(&SS,1,1,fp);
-	printf("%d/%02d/%02d %02d:%02d:%02d\n",YYYY, MM, DD, HH, mm, SS);
-}
 int getFileSize(FILE* fp){
 	fseek(fp, 0, SEEK_END);
 	int size = ftell(fp);
@@ -191,11 +140,77 @@ void copyFile(FILE *fp, int startblock, int size, char* name){
 	}
 }
 
+int findRootDirFree(FILE *fp){
+	currentFile = getRootDirStart(fp)*512;
+	int filetype;
+	while (1){
+		fseek(fp, currentFile,SEEK_SET);
+		filetype = getFileType(fp);
+		if (filetype == 0){
+			return currentFile;
+		}
+		currentFile += 64;
+	}
+}
+
+void writeDirectoy(FILE *fp,int startingblock, int numblocks, int filesize,char *name){
+	int freeDir = findRootDirFree(fp);
+	int bi;
+	//setfiletype
+	fseek(fp,currentFile,SEEK_SET);
+	int ft =3;
+	fwrite(&ft,1,1,fp);
+	//set starting block
+	fseek(fp,currentFile+DIRECTORY_START_BLOCK_OFFSET,SEEK_SET);
+	bi = htonl(startingblock);
+	fwrite(&bi,1,4,fp);
+	//set number of blocks
+	fseek(fp,currentFile+DIRECTORY_BLOCK_COUNT_OFFSET,SEEK_SET);
+	bi = htonl(numblocks);
+	fwrite(&bi,1,4,fp);
+	//set file size
+	fseek(fp,currentFile+DIRECTORY_FILE_SIZE_OFFSET,SEEK_SET);
+	bi = htonl(filesize);
+	fwrite(&bi,1,4,fp);
+	//set creat time
+	fseek(fp,currentFile+DIRECTORY_CREATE_OFFSET,SEEK_SET);
+	//set modify time
+	fseek(fp,currentFile+DIRECTORY_MODIFY_OFFSET,SEEK_SET);
+	//set filename
+	fseek(fp,currentFile+DIRECTORY_FILENAME_OFFSET,SEEK_SET);
+	fputs(name,fp);
+	//set to 0x0000000000006
+	fseek(fp,currentFile+DIRECTORY_FILENAME_OFFSET+31,SEEK_SET);
+	int unused = 0x0000000000006;
+	fwrite(&unused,1,6,fp);
+}
+
+void witeFile(FILE *fp){
+
+}
+
 void copyIn(FILE *fp, char* name){
 	FILE * in;
-	in = fopen(name, "r");
-	int size = getFileSize(in);
-	int freeblock = findFreeBlock(fp);
+	if ((in = fopen(name, "r"))){
+		int freeblock = findFreeBlock(fp);
+		printf("%d\n",freeblock);
+		int freeblockpos = findFreeBlockPos(fp);
+		int filesize = getFileSize(in);
+		printf("%d\n",filesize);
+		if (filesize <= 512){
+			fseek(fp,freeblock-4,SEEK_SET);
+			int hex = 0xffffffff;
+			fwrite(&hex,1,4,fp);
+			//write directory
+			writeDirectoy(fp,freeblockpos,1,filesize,name);
+			//write file
+		}
+		//fseek(fp,freeblock,SEEK_SET);
+		//int hex = htonl(freeblockpos);
+		//fwrite(&hex,1,4,fp);
+	} else {
+		printf("File not found\n");
+	}
 
 }
 
@@ -215,19 +230,6 @@ int main(int argc, char** argv)
 	if ((fp=fopen(argv[1],"rb+")))
 	{
 		currentFile = getRootDirStart(fp)*512;
-		printf("File not found\n");
-		int freeblock = findFreeBlock(fp);
-		fseek(fp,freeblock-4,SEEK_SET);
-		char hex[9];
-		sprintf(hex,"%08x",freeblock);
-		printf("%s\n", hex);
-		const char a[] = {'R','R','R','R'};
-		//printf("%d\n", freeblock);
-		int c = 0xDEADBEEF;
-		int b = htonl(c);
-		fwrite(&b,1,4,fp);
-
-		/*
 		while (1){
 			fseek(fp, currentFile,SEEK_SET);
 			filetype = getFileType(fp);
@@ -237,7 +239,8 @@ int main(int argc, char** argv)
 				//printf("D ");
 			} else {
 				//add file
-
+				copyIn(fp,argv[2]);
+				break;
 			}
 			getName(fp,name);
 			currentFile+=64;
@@ -246,7 +249,7 @@ int main(int argc, char** argv)
 				break;
 			}
 		}
-		*/
+
 	} else
 		printf("File not found\n");
 	free(name);
