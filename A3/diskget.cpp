@@ -193,7 +193,7 @@ int main(int argc, char** argv)
 			size = getSize(fp);
 			startblock = getStartBlock(fp);
 			blocksize = getBlockSize(fp);
-			//printf("%d\n",blocksize);
+			printf("%d\n",blocksize);
 			getName(fp,name);
 			currentFile+=64;
 			if (strcmp(argv[2],name) == 0){

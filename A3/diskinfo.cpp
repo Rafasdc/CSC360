@@ -133,7 +133,7 @@ int getFreeBlocks(FILE *fp){
 	unsigned char low_temp;
 	int val;
 	int retVal = 0;
-	int v = 512;
+	int v = DEFAULT_BLOCK_SIZE;
 	while (1){
 		fseek(fp,v,SEEK_SET);
 		v+= 4;
@@ -147,7 +147,7 @@ int getFreeBlocks(FILE *fp){
 		if (val == FAT_FREE){
 			retVal++;
 		}
-		if (v == 121*512){
+		if (v == (getFATblocks(fp)+1)*512){ //may need +1
 			break;
 		}
 	}
@@ -176,7 +176,7 @@ int getReservedBlocks(FILE *fp){
 		if (val == FAT_RESERVED){
 			retVal++;
 		}
-		if (v == 121*512){
+		if (v == (1+getFATblocks(fp))*512){ //may need +1
 			break;
 		}
 	}
@@ -206,7 +206,7 @@ int main(int argc, char** argv)
 	int allocatedblocks;
 	if ((fp=fopen(argv[1],"r")))
 	{
-		printf("Super block information:\n");
+		printf("Super block information: \n");
 		//getName(fp,name);
 		//printf("File system identifier: %s\n", name);
 		size = getBlockSize(fp);
@@ -221,7 +221,7 @@ int main(int argc, char** argv)
 		printf("Root directory start: %d\n", rootdirstart);
 		rootdirblocks = getRootDirBlocks(fp);
 		printf("Root directory blocks: %d\n", rootdirblocks);
-		printf("\nFAT information:\n");
+		printf("\nFAT information: \n");
 		freeblocks = getFreeBlocks(fp);
 		printf("Free Blocks: %d\n", freeblocks);
 		reservedblocks = getReservedBlocks(fp);

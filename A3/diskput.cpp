@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstring>
+#include <time.h>
+#include <netinet/in.h>
 
 int currentFile;
 
@@ -172,11 +174,36 @@ void writeDirectoy(FILE *fp,int startingblock, int numblocks, int filesize,char 
 	fseek(fp,freeDir+DIRECTORY_FILE_SIZE_OFFSET,SEEK_SET);
 	bi = htonl(filesize);
 	fwrite(&bi,1,4,fp);
-	//set creat time
+	//set create time
 	fseek(fp,freeDir+DIRECTORY_CREATE_OFFSET,SEEK_SET);
 	//set modify time
 	fseek(fp,freeDir+DIRECTORY_MODIFY_OFFSET,SEEK_SET);
+	time_t rawtime;
+	struct tm *info;
+	time (&rawtime);
+	info = localtime(&rawtime);
+	int year = 0xE007; //the year is fixed but can be acquiered with tm_year+1900
+	int month = info->tm_mon+1;
+	int day = info->tm_mday;
+	int hour = info->tm_hour;
+	int min = info->tm_min;
+	int sec = info->tm_sec;
+	bi = year;
+	fwrite(&bi,1,2,fp);
+	bi = month;
+	fwrite(&bi,1,1,fp);
+	bi = day;
+	fwrite(&bi,1,1,fp);
+	bi = hour;
+	fwrite(&bi,1,1,fp);
+	bi = min;
+	fwrite(&bi,1,1,fp);
+	bi = sec;
+	fwrite(&bi,1,1,fp);
 	//set filename
+	fseek(fp,freeDir+DIRECTORY_FILENAME_OFFSET,SEEK_SET);
+	int zero = 0;
+	fwrite(&zero,1,29,fp);
 	fseek(fp,freeDir+DIRECTORY_FILENAME_OFFSET,SEEK_SET);
 	fputs(name,fp);
 	//set to 0x00000000000FF
@@ -186,7 +213,7 @@ void writeDirectoy(FILE *fp,int startingblock, int numblocks, int filesize,char 
 	fwrite(&bi,1,2,fp);
 }
 
-void writeFile(FILE *fp, FILE *in, int startingblock){
+void writeFile(FILE *fp, FILE *in, int startingblock,int filesize){
 	char test[4];
 	int i = 0;
 	fseek(fp,startingblock*512,SEEK_SET);
@@ -195,7 +222,7 @@ void writeFile(FILE *fp, FILE *in, int startingblock){
 		fwrite(test,1,1,fp);
 		//printf("%s",test);
 		i++;
-		if (i == 96){
+		if (i == filesize){
 			break;
 			fclose(in);
 		}
@@ -206,10 +233,10 @@ void copyIn(FILE *fp, char* name){
 	FILE * in;
 	if ((in = fopen(name, "r"))){
 		int freeblock = findFreeBlock(fp);
-		printf("%d\n",freeblock);
+		//printf("%d\n",freeblock);
 		int freeblockpos = findFreeBlockPos(fp);
 		int filesize = getFileSize(in);
-		printf("%d\n",filesize);
+		//printf("%d\n",filesize);
 		if (filesize <= 512){
 			fseek(fp,freeblock-4,SEEK_SET);
 			int hex = 0xffffffff;
@@ -217,11 +244,29 @@ void copyIn(FILE *fp, char* name){
 			//write directory
 			writeDirectoy(fp,freeblockpos,1,filesize,name);
 			//write file
-			writeFile(fp,in,freeblockpos);
+			writeFile(fp,in,freeblockpos, filesize);
+		} else {
+			fseek(fp,freeblock-4,SEEK_SET);
+			int numblocks = (filesize/512);
+			if (filesize%512 != 0){
+				numblocks++;
+			}
+			//printf("numblocks is %d\n",numblocks);
+			int j = 0;
+			int fbp = freeblockpos+1;
+			while (j != numblocks-1){
+				int bi = htonl(fbp);
+				fwrite(&bi,1,4,fp);
+				fbp++;
+				j++;
+			}
+			int hex = 0xffffffff;
+			fwrite(&hex,1,4,fp);
+			//write directory
+			writeDirectoy(fp,freeblockpos,numblocks,filesize,name);
+			//write file
+			writeFile(fp,in,freeblockpos, filesize);
 		}
-		//fseek(fp,freeblock,SEEK_SET);
-		//int hex = htonl(freeblockpos);
-		//fwrite(&hex,1,4,fp);
 	} else {
 		printf("File not found\n");
 	}

@@ -31,23 +31,6 @@ int getRootDirStart(FILE *fp){
 	return retVal;
 };
 
-int getRootDirBlocks(FILE *fp){
-	int high;
-	int low;
-	unsigned char high_temp;
-	unsigned char low_temp;
-	int retVal;
-	fseek(fp,ROOTDIRBLOCKS_OFFSET,SEEK_SET);
-	fread(&high_temp,1,1,fp);
-	fread(&low_temp,1,1,fp);
-	high = ((high_temp<<8)) + low_temp;
-	fseek(fp,ROOTDIRBLOCKS_OFFSET+2,SEEK_SET);
-	fread(&high_temp,1,1,fp);
-	fread(&low_temp,1,1,fp);
-	low = ((high_temp<<8)) + low_temp;
-	retVal = ((high<<8)) + low;
-	return retVal;
-};
 
 int getFileType(FILE *fp){
 	unsigned char type;
@@ -62,11 +45,12 @@ int getSize(FILE *fp){
 	unsigned char high_temp;
 	unsigned char low_temp;
 	int retVal;
-	fseek(fp,DIRECTORY_FILE_SIZE_OFFSET-1,SEEK_CUR);
+	fseek(fp,DIRECTORY_FILE_SIZE_OFFSET+currentFile,SEEK_SET);
 	fread(&high_temp,1,1,fp);
 	fread(&low_temp,1,1,fp);
 	high = ((high_temp<<8)) + low_temp;
 	//printf("%d\n",high);
+	fseek(fp,DIRECTORY_FILE_SIZE_OFFSET+currentFile+2,SEEK_SET);
 	fread(&high_temp,1,1,fp);
 	fread(&low_temp,1,1,fp);
 	low = ((high_temp<<8)) + low_temp;
