@@ -157,36 +157,49 @@ void writeDirectoy(FILE *fp,int startingblock, int numblocks, int filesize,char 
 	int freeDir = findRootDirFree(fp);
 	int bi;
 	//setfiletype
-	fseek(fp,currentFile,SEEK_SET);
+	fseek(fp,freeDir,SEEK_SET);
 	int ft =3;
 	fwrite(&ft,1,1,fp);
 	//set starting block
-	fseek(fp,currentFile+DIRECTORY_START_BLOCK_OFFSET,SEEK_SET);
+	fseek(fp,freeDir+DIRECTORY_START_BLOCK_OFFSET,SEEK_SET);
 	bi = htonl(startingblock);
 	fwrite(&bi,1,4,fp);
 	//set number of blocks
-	fseek(fp,currentFile+DIRECTORY_BLOCK_COUNT_OFFSET,SEEK_SET);
+	fseek(fp,freeDir+DIRECTORY_BLOCK_COUNT_OFFSET,SEEK_SET);
 	bi = htonl(numblocks);
 	fwrite(&bi,1,4,fp);
 	//set file size
-	fseek(fp,currentFile+DIRECTORY_FILE_SIZE_OFFSET,SEEK_SET);
+	fseek(fp,freeDir+DIRECTORY_FILE_SIZE_OFFSET,SEEK_SET);
 	bi = htonl(filesize);
 	fwrite(&bi,1,4,fp);
 	//set creat time
-	fseek(fp,currentFile+DIRECTORY_CREATE_OFFSET,SEEK_SET);
+	fseek(fp,freeDir+DIRECTORY_CREATE_OFFSET,SEEK_SET);
 	//set modify time
-	fseek(fp,currentFile+DIRECTORY_MODIFY_OFFSET,SEEK_SET);
+	fseek(fp,freeDir+DIRECTORY_MODIFY_OFFSET,SEEK_SET);
 	//set filename
-	fseek(fp,currentFile+DIRECTORY_FILENAME_OFFSET,SEEK_SET);
+	fseek(fp,freeDir+DIRECTORY_FILENAME_OFFSET,SEEK_SET);
 	fputs(name,fp);
-	//set to 0x0000000000006
-	fseek(fp,currentFile+DIRECTORY_FILENAME_OFFSET+31,SEEK_SET);
-	int unused = 0x0000000000006;
-	fwrite(&unused,1,6,fp);
+	//set to 0x00000000000FF
+	fseek(fp,freeDir+DIRECTORY_FILENAME_OFFSET+30,SEEK_SET);
+	int unused = 0x00FF;
+	bi = htonl(unused);
+	fwrite(&bi,1,2,fp);
 }
 
-void witeFile(FILE *fp){
-
+void writeFile(FILE *fp, FILE *in, int startingblock){
+	char test[4];
+	int i = 0;
+	fseek(fp,startingblock*512,SEEK_SET);
+	while (1){
+		fread(&test,1,1,in);
+		fwrite(test,1,1,fp);
+		//printf("%s",test);
+		i++;
+		if (i == 96){
+			break;
+			fclose(in);
+		}
+	}
 }
 
 void copyIn(FILE *fp, char* name){
@@ -204,6 +217,7 @@ void copyIn(FILE *fp, char* name){
 			//write directory
 			writeDirectoy(fp,freeblockpos,1,filesize,name);
 			//write file
+			writeFile(fp,in,freeblockpos);
 		}
 		//fseek(fp,freeblock,SEEK_SET);
 		//int hex = htonl(freeblockpos);
